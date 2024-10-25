@@ -1,0 +1,418 @@
+Some Configuration Scripts v5
+
++++++++++++++++++++++++++++++++++++
+
+
++++++++++++++++++++
+Router configuration
++++++++++++++++++
+!Router>
+enable
+!Router#
+!configure terminal
+conf t
+!Router(config)#
+hostname R1 
+!
++++
+interface configuration
++++
+int fa0/0
+ ip address 204.92.152.1 255.255.255.0
+ no shut
+!
+!perhaps gig interface
+int gi0/0
+ ip address 219.9.71.1 255.255.255.0
+ no shut
+!
+++++++++++
+password for telnet on a switch
++++++
+line vty 0 15  
+ password cisco
+ login
+!
+++++
+If telnet needs username/password
+line vty 0 15 
+ password cisco
+ login local
+
+++++++++++
+ssh configurations
++++++
+!ssh requires that a domain name be configured 
+before the ssh keys are generated
+ip domain-name cisco.com  
+!
+!ssh requires that the user be authenticated 
+with both a username and a password
+line vty 0 4 
+login local
+!
+!For ssh, configure a username cisco and a 
+password of cisco
+username cisco password cisco
+!
+!generate the ssh keying material - choose 1024 bits
+crytpo key generate rsa
+!
++++++++++++++++++++++++++++++++++++
+
+Some Switch Commands
+
+++++++++++++
+ Trunking     Configure trunk links
++++++++++++++++++++++
+!for ports 19 to 21 
+!on a Layer2 switch
+int range fa0/19-21
+ switchport mode trunk
+!
+layer3 switch
+int range gi0/1-2
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
++
+
++++++++++++++++++
+create vlans
++++++++++++++++++++++
+!
+vlan 45
+name Sales
+!
+vlan 80
+name Finance
+!
+vlan 99
+ name management_vlan
+!
+vlan 199
+ name native_vlan
+!
+++++++++++++
+allocate ports to vlans
+and make them access ports
++++++++++++++++++++++
+!
+int range fa0/4-6
+ switchport mode access
+ switchport access vlan 45
+!
+int range fa0/7-9
+ switchport mode access
+ switchport access vlan 80
+!
+int range fa0/16-17
+ switchport mode access
+ switchport access vlan 99
+!
+++++++++++
++++++++++++++++++++++++
+port security 
++++++++++++++++++++++
+! Assume sticky learning
+int range fa0/11-13
+ switchport mode access
+ switchport port-security
+ switchport port-security mac-address sticky
+!
+!option change maximum to 2 e.g. because ip phone 
+ switchport port-security maximum 2
+!
+!option violation setting - 
+!no shutdown but send log message
+!
+ switchport port-security violation restrict
+!!!!!
+!Note : the default settings are
+!maximum 1 and shutdown if violation
+!no need to configure if default settings needed
++++++++++
+switch management
+++++
+!put an ip address on a switch
+!for a simple switch management,
+!using vlan 199 as management vlan
+
+int vlan 199
+ ip address 192.168.199.2 255.255.255.0
+ no shut
+!
+ip default-gateway 192.168.199.1 
+
+!!!
+Note: if last address is the gateway
+!
+ip default-gateway 172.16.199.254
+!
++++++++++++++++++++++++
+configure InterVLAN Routing IVR on the router
++++++++++++++++++++++
+!
+!on the router fa0/0
+interface FastEthernet0/0
+ no ip address
+ no shut
+!
+!for vlan 1
+interface FastEthernet0/0.1
+ encapsulation dot1Q 1 
+ ip address 172.16.1.1 255.255.255.0
+!
+!for vlan 45
+interface FastEthernet0/0.45
+ encapsulation dot1Q 45
+ ip address 172.16.45.1 255.255.255.0
+!
+!!!
+Note: if the interface is gigabit,
+
+interface Gi0/0
+ no ip address
+ no shut
+!
+!e.g. for vlan 60
+int gi0/0.60
+ encapsulation dot1Q 60 
+ ip address 172.16.60.1 255.255.255.0
+!
+!if using last address as gateway
+int gi0/0.60
+ encapsulation dot1Q 60 
+ ip address 172.16.60.254 255.255.255.0
+
+***************
+extra switch commands
+**************
+!access ports will forward immediately
+!
+spanning-tree portfast default
+!
+
++++++++++++++++++++++++
+Router WAN interface configs
++++++++++++++++++++++++
+!Assume /30 subnet mask on the WAN serial link
+int s0/3/0
+ ip add 200.1.1.1 255.255.255.252
+ no shut
+OR
+!Assume /30 subnet mask on the WAN gigabit link
+int gi0/0/1
+ ip add 200.1.1.1 255.255.255.252
+ no shut
+
+++++++++++++++++++
+Router OSPF routing
++++++++++++++++++++++
+!
+Assume...enable OSPF on all active interfaces
+Assume .. only area 0
+!
+router ospf 1
+ network 0.0.0.0 255.255.255.255 area 0
+
++++++++++++++++++++++++
+ Router default route - internet route
++++++++++++++++++++++
+! using exit interface of s0/0/0
+!
+ip route 0.0.0.0 0.0.0.0 s0/0/0
+!
+!using a next hop address of 200.10.1.1
+!
+ip route 0.0.0.0 0.0.0.0 200.10.1.1
+!
+!
+!configure OSPF to advertise this internet route
+router ospf 1
+ default-information originate
++++++++++++++++++++++++
+NAT  Network Address Translation
++++++++++++++++++++++++
+!Port Address Translation, PAT
+!overload on an interface gi0/0/2
+!
+ip nat inside source list 1 int gi0/0/2 overload
+!
+!access-list 1 to allow 192.168.10.0 /24  and 
+allow 192.168.20.0 /24
+devices to access the internet
+!
+access-list 1 permit 192.168.10.0  0.0.0.255
+access-list 1 permit 192.168.20.0  0.0.0.255
+!!!
+! Note  /24 = 255.255.255.0
+!  Note  /24 inverse mask 0.0.0.255
++++
+!enable NAT inside on int Gi0/0/0
+int Gi0/0/0
+ ip nat inside
+!
+!enable NAT outside on int gi0/0/2
+int gi0/0/2
+ ip nat outside
+!
+
+************************
+More router configuration
+*************************
+
++++++++++++++++++++++
+Create a loopback interface
+Example 1 : Loopback 0 
+
+int lo0
+ip address 1.1.1.1 255.255.255.255
+
+Example 2 : loopback 80 to simulate VLAN 80
+
+int lo 80
+ip address 10.1.80.1 255.255.255.0
+
+
+++++++++++++++++++++++++++
+Standard ACLs, Access Control Lists
+++++++++++++++++++++++++++
+!!!!
+
+!Example 1  permit single host
+!
+!Permit only PC 192.168.1.5 to access LAN on router A
+!
+access-list 1 permit host 192.168.1.5
+access-list 1 deny any
+!
+!router A
+int fa0/0
+ ip accesss-group 1 out
+!
+++++++++++++++++
+
+!Example 2  permit whole subnet
+!
+!Permit the network 192.168.1.0 /24 to access LAN on router A
+!
+access-list 2 permit 192.168.1.0 0.0.0.255
+access-list 2 deny any
+!
+!router B
+int fa0/0
+ ip accesss-group 2 out
+!
+++++++++++++++++
+
+!Example 3  deny a single host
+!
+!deny  PC 192.168.1.11 to access LAN on router C
+!
+access-list 3 deny host 192.168.1.11
+access-list 3 permit any
+!
+!router C
+int fa0/0
+ ip accesss-group 3 out
+!
++++++++++++++
+Example 4  permit whole subnet to access vty for management
+!
+!Permit  192.168.1.0 /24 to access vty lines on router D
+!
+!
+access-list 4 permit 192.168.1.0 0.0.0.255
+access-list 4 deny any
+!
+!router D
+line vty 0 4
+ access-class 4 in
+!
+++++++++++++++
+Logging
++++++++++++++++
+Logging to syslog server at 192.168.1.100
+!
+logging 192.168.1.100
+!
+!time stamps needed on log messages
+!
+service timestamps log datetime msec
+!!
+++++++++++
+
+ 
+Script for the ISP router AT2 Task 3
+
+Assignment Task 1c
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!Script for the ISP
+!ISP
+!!!!!
+!gi0/0/0 connects to RMT router R1
+!
+int gi0/0/0
+ip address 200.165.100.106 255.255.255.252
+no shut
+!
+!Lo12 represents some internet address
+int Loopback 0
+ip address 12.12.12.12 255.255.255.255
+!
+!Gi0/0/1 connects to an internet server
+!
+int gi0/0/1
+ip address 100.1.1.1 255.255.255.0
+no shut
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!For the internet server
+ip address is 100.1.1.254,  255.255.255.0
+gateway is 100.1.1.1
+
+ 
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
